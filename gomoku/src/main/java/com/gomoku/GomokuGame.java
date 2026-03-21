@@ -134,8 +134,8 @@ public class GomokuGame {
         return switch (difficulty) {
             case EASY   -> easyMove(b);
             case NORMAL -> minimax(b, 2, Integer.MIN_VALUE, Integer.MAX_VALUE, true);
-            case HARD   -> minimax(b, 4, Integer.MIN_VALUE, Integer.MAX_VALUE, true);
-            case EXPERT -> iterativeDeepening(b, 2000);
+            case HARD   -> minimax(b, 3, Integer.MIN_VALUE, Integer.MAX_VALUE, true);
+            case EXPERT -> iterativeDeepening(b, 1000);
         };
     }
 
@@ -184,7 +184,7 @@ public class GomokuGame {
     private int[] iterativeDeepening(int[][] b, long ms) {
         long end = System.currentTimeMillis() + ms;
         int[] best = getCandidates(b).get(0);
-        for (int d = 2; d <= 6; d++) {
+        for (int d = 2; d <= 4; d++) {
             if (System.currentTimeMillis() >= end) break;
             best = minimax(b, d, Integer.MIN_VALUE, Integer.MAX_VALUE, true);
         }
