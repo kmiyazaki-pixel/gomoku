@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GOMOKU 五目並べ</title>
+<style>
+  :root {
+    --board-bg: #dcb06a;
+    --stone-size: 36px;
+    --grid: 40px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: #eee; min-height: 100vh; }
+
+  /* ── Views ── */
+  .view { display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+  .view.active { display: flex; }
+
+  /* ── Start screen ── */
+  #view-start h1 { font-size: 3rem; letter-spacing: .3em; color: #f0c060; margin-bottom: .3em; }
+  #view-start p.sub { color: #aaa; margin-bottom: 2em; }
+  .card { background: #16213e; border-radius: 16px; padding: 28px 36px; width: 100%; max-width: 420px; }
+  .card label { display: block; font-size: .8rem; color: #aaa; margin: 14px 0 6px; text-transform: uppercase; letter-spacing: .08em; }
+  .card input[type=text] { width: 100%; padding: 10px 14px; border: none; border-radius: 8px; background: #0f3460; color: #fff; font-size: 1rem; }
+  .toggle-group { display: flex; gap: 6px; flex-wrap: wrap; }
+  .toggle-group button { flex: 1; padding: 8px 0; border: 2px solid #0f3460; border-radius: 8px; background: #0f3460; color: #aaa; cursor: pointer; font-size: .9rem; transition: all .2s; }
+  .toggle-group button.active { border-color: #f0c060; color: #f0c060; background: #1e3a6e; }
+  .btn-primary { width: 100%; margin-top: 22px; padding: 14px; border: none; border-radius: 10px; background: linear-gradient(135deg, #f0c060, #e09020); color: #1a1a2e; font-size: 1.1rem; font-weight: 700; cursor: pointer; letter-spacing: .05em; }
+  .btn-primary:hover { opacity: .9; }
+  .btn-secondary { margin-top: 10px; width: 100%; padding: 10px; border: 2px solid #aaa; border-radius: 10px; background: transparent; color: #aaa; font-size: .95rem; cursor: pointer; }
+  .btn-secondary:hover { border-color: #fff; color: #fff; }
+
+  /* ── Room screen ── */
+  #view-room .card { max-width: 360px; }
+
+  /* ── Game screen ── */
+  #view-play { padding: 0; }
+  .game-wrap { display: flex; flex-direction: column; align-items: center; width: 100%; }
+  .game-header { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 700px; padding: 14px 20px; }
+  .turn-banner { font-size: 1rem; font-weight: 600; background: #16213e; border-radius: 8px; padding: 8px 16px; }
+  .score-wrap { display: flex; gap: 12px; font-size: .9rem; }
+  .score-item { background: #16213e; border-radius: 8px; padding: 6px 14px; }
+  .btn-back { background: none; border: 2px solid #555; border-radius: 8px; color: #aaa; padding: 6px 14px; cursor: pointer; font-size: .85rem; }
+  .btn-back:hover { border-color: #fff; color: #fff; }
+
+  /* ── Board ── */
+  .board-outer { position: relative; background: var(--board-bg); border-radius: 4px; padding: 20px; box-shadow: 0 8px 32px #0006; }
+  canvas#board-canvas { display: block; cursor: pointer; }
+
+  /* ── Overlays ── */
+  .overlay { display: none; position: fixed; inset: 0; background: #0009; align-items: center; justify-content: center; z-index: 100; }
+  .overlay.active { display: flex; }
+  .overlay-box { background: #16213e; border-radius: 16px; padding: 36px 40px; text-align: center; max-width: 340px; width: 90%; }
+  .overlay-box h2 { font-size: 1.8rem; color: #f0c060; margin-bottom: .5em; }
+  .overlay-box p { color: #aaa; margin-bottom: 1.2em; }
+  .overlay-box input[type=text] { width: 100%; padding: 10px 14px; border: none; border-radius: 8px; background: #0f3460; color: #fff; font-size: 1rem; margin-bottom: 12px; }
+  .overlay-box .btn-primary { margin-top: 0; }
+  .spinner { width: 48px; height: 48px; border: 5px solid #444; border-top-color: #f0c060; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Ranking screen ── */
+  #screen-ranking { display: none; flex-direction: column; align-items: center; min-height: 100vh; padding: 30px 20px; }
+  #screen-ranking.active { display: flex; }
+  .tab-bar { display: flex; gap: 6px; margin-bottom: 20px; }
+  .tab-bar button { padding: 8px 18px; border: 2px solid #333; border-radius: 8px; background: none; color: #aaa; cursor: pointer; font-size: .9rem; }
+  .tab-bar button.active { border-color: #f0c060; color: #f0c060; }
+  .rank-table { width: 100%; max-width: 480px; border-collapse: collapse; }
+  .rank-table th { color: #f0c060; font-weight: 600; padding: 10px 14px; border-bottom: 1px solid #333; text-align: left; }
+  .rank-table td { padding: 10px 14px; border-bottom: 1px solid #222; }
+  .rank-table tr:hover td { background: #1e3a6e22; }
+
+  /* ── Confetti canvas ── */
+  #confetti-canvas { position: fixed; inset: 0; pointer-events: none; z-index: 200; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════ START SCREEN ══════════════════════════ -->
+<div id="view-start" class="view active">
+  <h1>GOMOKU</h1>
+  <p class="sub">五目並べ</p>
+  <div class="card">
+    <label>プレイヤー名</label>
+    <input type="text" id="input-name" placeholder="名前を入力" maxlength="20">
+
+    <label>モード</label>
+    <div class="toggle-group" id="toggle-mode">
+      <button class="active" data-val="VS_AI">AI対戦</button>
+      <button data-val="VS_HUMAN">オンライン対戦</button>
+    </div>
+
+    <div id="ai-options">
+      <label>難易度</label>
+      <div class="toggle-group" id="toggle-diff">
+        <button data-val="EASY">やさしい</button>
+        <button class="active" data-val="NORMAL">ふつう</button>
+        <button data-val="HARD">むずかしい</button>
+        <button data-val="EXPERT">鬼</button>
+      </div>
+
+      <label>先攻・後攻</label>
+      <div class="toggle-group" id="toggle-color">
+        <button class="active" data-val="black">先攻（黒）</button>
+        <button data-val="white">後攻（白）</button>
+      </div>
+    </div>
+
+    <button class="btn-primary" onclick="startGame()">ゲームスタート</button>
+    <button class="btn-secondary" onclick="showRanking()">ランキング</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════ ROOM SCREEN ══════════════════════════ -->
+<div id="view-room" class="view">
+  <div class="card">
+    <h2 style="margin-bottom:16px;color:#f0c060">オンライン対戦</h2>
+    <label>ルームID（共通の文字列を使用）</label>
+    <input type="text" id="input-room" placeholder="例: abc123" maxlength="20">
+    <button class="btn-primary" onclick="joinRoom()">入室する</button>
+    <button class="btn-secondary" onclick="showView('view-start')">もどる</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════ GAME SCREEN ══════════════════════════ -->
+<div id="view-play" class="view">
+  <div class="game-wrap">
+    <div class="game-header">
+      <button class="btn-back" onclick="showView('view-start')">← もどる</button>
+      <div class="turn-banner" id="turn-banner">黒の番</div>
+      <div class="score-wrap">
+        <div class="score-item">⚫ <span id="black-score">0</span></div>
+        <div class="score-item">⚪ <span id="white-score">0</span></div>
+      </div>
+    </div>
+    <div class="board-outer">
+      <canvas id="board-canvas"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ RANKING SCREEN ════════════════════════ -->
+<div id="screen-ranking">
+  <h2 style="color:#f0c060;margin-bottom:20px">ランキング</h2>
+  <div class="tab-bar" id="rank-tabs">
+    <button class="active" onclick="switchRankTab('EASY',this)">やさしい</button>
+    <button onclick="switchRankTab('NORMAL',this)">ふつう</button>
+    <button onclick="switchRankTab('HARD',this)">むずかしい</button>
+    <button onclick="switchRankTab('EXPERT',this)">鬼</button>
+  </div>
+  <table class="rank-table">
+    <thead><tr><th>#</th><th>名前</th><th>手数</th></tr></thead>
+    <tbody id="rank-tbody"></tbody>
+  </table>
+  <button class="btn-secondary" style="max-width:200px;margin-top:24px" onclick="hideRanking()">もどる</button>
+</div>
+
+<!-- ══════════════════════════ OVERLAYS ══════════════════════════════ -->
+<!-- 結果 -->
+<div class="overlay" id="overlay">
+  <div class="overlay-box">
+    <h2 id="overlay-title">あなたの勝ち！</h2>
+    <p id="overlay-msg">ランキングに登録しますか？</p>
+    <input type="text" id="overlay-name" placeholder="名前を入力">
+    <button class="btn-primary" id="btn-submit-rank" onclick="submitRanking()">登録する</button>
+    <button class="btn-secondary" onclick="closeOverlay()">スキップ</button>
+  </div>
+</div>
+
+<!-- 待機 -->
+<div class="overlay" id="waiting-overlay">
+  <div class="overlay-box">
+    <div class="spinner"></div>
+    <h2 style="font-size:1.2rem">対戦相手を待っています…</h2>
+    <p id="waiting-room-id" style="margin-top:8px;font-size:.85rem;color:#aaa"></p>
+    <button class="btn-secondary" style="margin-top:16px" onclick="leaveRoom()">キャンセル</button>
+  </div>
+</div>
+
+<!-- 紙吹雪 -->
+<canvas id="confetti-canvas"></canvas>
+
+<script>
+// ════════════════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════════════════
+const S = {
+  mode: 'VS_AI',
+  diff: 'NORMAL',
+  color: 'black',
+  name: '',
+  gameOver: false,
+  playerColor: 1,
+  currentPlayer: 1,
+  lastMove: null,
+  winLine: null,
+  rankData: {},
+  currentRankDiff: 'EASY',
+  ws: null,
+  myColor: null,  // online用
+};
+
+const BOARD = 15;
+const CELL  = 40;
+const PAD   = 0;
+const SIZE  = (BOARD - 1) * CELL;
+const CANVAS_SIZE = SIZE + CELL; // 余白込み
+
+// ════════════════════════════════════════════════════════════
+//  INIT CANVAS
+// ════════════════════════════════════════════════════════════
+const canvas = document.getElementById('board-canvas');
+const ctx = canvas.getContext('2d');
+canvas.width  = CANVAS_SIZE;
+canvas.height = CANVAS_SIZE;
+const OFFSET = CELL / 2; // グリッド線を中央に
+
+canvas.addEventListener('click', onBoardClick);
+
+// ════════════════════════════════════════════════════════════
+//  VIEWS
+// ════════════════════════════════════════════════════════════
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.getElementById('screen-ranking').classList.remove('active');
+}
+
+// ── トグルボタン ─────────────────────────────────────────────
+document.querySelectorAll('.toggle-group').forEach(grp => {
+  grp.addEventListener('click', e => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    grp.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const id = grp.id;
+    if (id === 'toggle-mode')  { S.mode  = btn.dataset.val; toggleAiOptions(); }
+    if (id === 'toggle-diff')  { S.diff  = btn.dataset.val; }
+    if (id === 'toggle-color') { S.color = btn.dataset.val; }
+  });
+});
+
+function toggleAiOptions() {
+  document.getElementById('ai-options').style.display = S.mode === 'VS_AI' ? '' : 'none';
+}
+
+// ════════════════════════════════════════════════════════════
+//  GAME START
+// ════════════════════════════════════════════════════════════
+async function startGame() {
+  S.name = document.getElementById('input-name').value.trim() || 'Player';
+  if (S.mode === 'VS_HUMAN') {
+    showView('view-room');
+    return;
+  }
+  await fetch('/api/name', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name: S.name}) });
+  const res = await fetch('/api/new', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ difficulty: S.diff, color: S.color, mode: 'VS_AI' })
+  });
+  const state = await res.json();
+  applyState(state);
+  showView('view-play');
+}
+
+// ════════════════════════════════════════════════════════════
+//  WEBSOCKET (ONLINE)
+// ════════════════════════════════════════════════════════════
+function joinRoom() {
+  const roomId = document.getElementById('input-room').value.trim();
+  if (!roomId) return alert('ルームIDを入力してください');
+  S.name = document.getElementById('input-name').value.trim() || 'Player';
+
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  S.ws = new WebSocket(`${proto}://${location.host}/ws/room`);
+
+  S.ws.onopen = () => {
+    S.ws.send(JSON.stringify({ type: 'join', roomId, name: S.name }));
+  };
+  S.ws.onmessage = e => handleWsMessage(JSON.parse(e.data), roomId);
+  S.ws.onclose = () => {
+    if (!S.gameOver) alert('接続が切断されました');
+  };
+}
+
+function handleWsMessage(msg, roomId) {
+  switch (msg.type) {
+    case 'waiting':
+      showView('view-room');
+      document.getElementById('waiting-overlay').classList.add('active');
+      document.getElementById('waiting-room-id').textContent = 'ルームID: ' + roomId;
+      break;
+    case 'start':
+      S.myColor = msg.color;
+      document.getElementById('waiting-overlay').classList.remove('active');
+      applyState({ board: Array.from({length:15}, ()=>new Array(15).fill(0)), currentPlayer:1, gameOver:false, winner:null, winLine:null, blackScore:0, whiteScore:0, playerColor: msg.color, lastRow:-1, lastCol:-1 });
+      showView('view-play');
+      break;
+    case 'update':
+      applyState({ ...msg, playerColor: S.myColor });
+      break;
+    case 'opponent_left':
+      alert('相手が退出しました');
+      showView('view-start');
+      break;
+    case 'error':
+      alert(msg.message);
+      showView('view-start');
+      break;
+  }
+}
+
+function leaveRoom() {
+  if (S.ws) S.ws.close();
+  document.getElementById('waiting-overlay').classList.remove('active');
+  showView('view-start');
+}
+
+// ════════════════════════════════════════════════════════════
+//  BOARD CLICK
+// ════════════════════════════════════════════════════════════
+async function onBoardClick(e) {
+  if (S.gameOver) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const col = Math.round((x - OFFSET) / CELL);
+  const row = Math.round((y - OFFSET) / CELL);
+  if (col < 0 || col >= BOARD || row < 0 || row >= BOARD) return;
+
+  if (S.mode === 'VS_HUMAN' && S.ws) {
+    if (S.currentPlayer !== S.myColor) return;
+    S.ws.send(JSON.stringify({ type: 'move', row, col }));
+    return;
+  }
+
+  // AI対戦
+  if (S.currentPlayer !== S.playerColor) return;
+  const res = await fetch('/api/move', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ row, col })
+  });
+  const state = await res.json();
+  applyState(state);
+}
+
+// ════════════════════════════════════════════════════════════
+//  STATE → UI
+// ════════════════════════════════════════════════════════════
+let boardState = null;
+
+function applyState(state) {
+  boardState = state;
+  S.gameOver = state.gameOver;
+  S.playerColor = state.playerColor ?? S.playerColor;
+  S.currentPlayer = state.currentPlayer;
+  S.lastMove = (state.lastRow >= 0) ? [state.lastRow, state.lastCol] : null;
+  S.winLine = state.winLine;
+
+  document.getElementById('black-score').textContent = state.blackScore ?? 0;
+  document.getElementById('white-score').textContent = state.whiteScore ?? 0;
+  updateTurnBanner(false);
+  renderBoard(state.board, S.lastMove, S.winLine);
+
+  if (state.gameOver) {
+    setTimeout(() => showResult(state), 600);
+  }
+}
+
+function updateTurnBanner(aiThinking) {
+  const banner = document.getElementById('turn-banner');
+  if (S.gameOver) { banner.textContent = '終了'; return; }
+  if (aiThinking) { banner.textContent = 'AI思考中…'; return; }
+  const isMyTurn = S.mode === 'VS_HUMAN'
+    ? S.currentPlayer === S.myColor
+    : S.currentPlayer === S.playerColor;
+  const colorName = S.currentPlayer === 1 ? '⚫ 黒' : '⚪ 白';
+  banner.textContent = isMyTurn ? `${colorName}の番（あなた）` : `${colorName}の番`;
+}
+
+// ════════════════════════════════════════════════════════════
+//  RENDER BOARD
+// ════════════════════════════════════════════════════════════
+function renderBoard(board, lastMove, winLine) {
+  ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+  // 盤面背景
+  ctx.fillStyle = '#dcb06a';
+  ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+  // グリッド線
+  ctx.strokeStyle = '#8B6914';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < BOARD; i++) {
+    const x = OFFSET + i * CELL;
+    const y = OFFSET + i * CELL;
+    ctx.beginPath(); ctx.moveTo(x, OFFSET); ctx.lineTo(x, OFFSET + (BOARD-1)*CELL); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(OFFSET, y); ctx.lineTo(OFFSET + (BOARD-1)*CELL, y); ctx.stroke();
+  }
+
+  // 星（天元など）
+  const stars = [[3,3],[3,7],[3,11],[7,3],[7,7],[7,11],[11,3],[11,7],[11,11]];
+  ctx.fillStyle = '#8B6914';
+  stars.forEach(([r,c]) => {
+    ctx.beginPath();
+    ctx.arc(OFFSET + c*CELL, OFFSET + r*CELL, 4, 0, Math.PI*2);
+    ctx.fill();
+  });
+
+  if (!board) return;
+
+  // 勝利ラインのセット
+  const wlSet = new Set();
+  if (winLine) winLine.forEach(p => wlSet.add(`${p[0]},${p[1]}`));
+
+  // 石を描画
+  for (let r = 0; r < BOARD; r++) {
+    for (let c = 0; c < BOARD; c++) {
+      const v = board[r][c];
+      if (!v) continue;
+      const cx = OFFSET + c * CELL;
+      const cy = OFFSET + r * CELL;
+      const radius = CELL * 0.45;
+      const isWin = wlSet.has(`${r},${c}`);
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI*2);
+
+      if (v === 1) {
+        const grad = ctx.createRadialGradient(cx-4, cy-4, 2, cx, cy, radius);
+        grad.addColorStop(0, '#666');
+        grad.addColorStop(1, '#000');
+        ctx.fillStyle = grad;
+      } else {
+        const grad = ctx.createRadialGradient(cx-4, cy-4, 2, cx, cy, radius);
+        grad.addColorStop(0, '#fff');
+        grad.addColorStop(1, '#ccc');
+        ctx.fillStyle = grad;
+      }
+      ctx.fill();
+
+      // 勝利ハイライト
+      if (isWin) {
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      }
+
+      // 直前の手マーカー
+      if (lastMove && lastMove[0] === r && lastMove[1] === c) {
+        ctx.fillStyle = 'rgba(255,60,60,0.85)';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 5, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  RESULT OVERLAY
+// ════════════════════════════════════════════════════════════
+function showResult(state) {
+  const overlay = document.getElementById('overlay');
+  const title   = document.getElementById('overlay-title');
+  const msg     = document.getElementById('overlay-msg');
+  const nameIn  = document.getElementById('overlay-name');
+  const btnRank = document.getElementById('btn-submit-rank');
+
+  nameIn.value = S.name;
+  if (state.winner === 'draw') {
+    title.textContent = '引き分け';
+    msg.textContent = '';
+    btnRank.style.display = 'none';
+  } else {
+    const winColor = state.winner === 'black' ? '⚫ 黒' : '⚪ 白';
+    const isMe = (S.mode === 'VS_AI' && state.winner === (S.playerColor === 1 ? 'black' : 'white'))
+              || (S.mode === 'VS_HUMAN' && state.winner === (S.myColor === 1 ? 'black' : 'white'));
+    title.textContent = isMe ? '🎉 あなたの勝ち！' : `${winColor}の勝ち`;
+    msg.textContent   = isMe ? 'ランキングに登録しますか？' : '';
+    btnRank.style.display = (isMe && S.mode === 'VS_AI') ? '' : 'none';
+    if (isMe) launchConfetti();
+  }
+  overlay.classList.add('active');
+}
+
+function closeOverlay() {
+  document.getElementById('overlay').classList.remove('active');
+}
+
+// ════════════════════════════════════════════════════════════
+//  RANKING
+// ════════════════════════════════════════════════════════════
+async function submitRanking() {
+  const name = document.getElementById('overlay-name').value.trim() || S.name;
+  const moveCount = (boardState?.blackScore ?? 0) + (boardState?.whiteScore ?? 0);
+  await fetch('/api/ranking/submit', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ name, score: moveCount, difficulty: S.diff })
+  });
+  closeOverlay();
+  showRanking();
+}
+
+async function showRanking() {
+  const data = await fetch('/api/ranking').then(r => r.json());
+  S.rankData = data;
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('screen-ranking').classList.add('active');
+  renderRankTable(S.currentRankDiff);
+}
+
+function hideRanking() {
+  document.getElementById('screen-ranking').classList.remove('active');
+  showView('view-start');
+}
+
+function switchRankTab(diff, btn) {
+  S.currentRankDiff = diff;
+  document.querySelectorAll('#rank-tabs button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderRankTable(diff);
+}
+
+function renderRankTable(diff) {
+  const rows = S.rankData[diff] || [];
+  const tbody = document.getElementById('rank-tbody');
+  tbody.innerHTML = rows.length === 0
+    ? '<tr><td colspan="3" style="text-align:center;color:#555">記録なし</td></tr>'
+    : rows.map((r, i) => `<tr><td>${i+1}</td><td>${esc(r.name)}</td><td>${r.score} 手</td></tr>`).join('');
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ════════════════════════════════════════════════════════════
+//  CONFETTI
+// ════════════════════════════════════════════════════════════
+function launchConfetti() {
+  const cc = document.getElementById('confetti-canvas');
+  cc.width  = window.innerWidth;
+  cc.height = window.innerHeight;
+  const cctx = cc.getContext('2d');
+  const pieces = Array.from({length: 120}, () => ({
+    x: Math.random() * cc.width,
+    y: Math.random() * -cc.height,
+    w: 8 + Math.random() * 8,
+    h: 4 + Math.random() * 6,
+    color: `hsl(${Math.random()*360},80%,60%)`,
+    vy: 2 + Math.random() * 4,
+    vx: (Math.random() - .5) * 3,
+    angle: Math.random() * 360,
+    va: (Math.random() - .5) * 5,
+  }));
+  let frame;
+  function draw() {
+    cctx.clearRect(0, 0, cc.width, cc.height);
+    let done = true;
+    pieces.forEach(p => {
+      p.y += p.vy; p.x += p.vx; p.angle += p.va;
+      if (p.y < cc.height) done = false;
+      cctx.save();
+      cctx.translate(p.x, p.y);
+      cctx.rotate(p.angle * Math.PI / 180);
+      cctx.fillStyle = p.color;
+      cctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+      cctx.restore();
+    });
+    if (!done) frame = requestAnimationFrame(draw);
+    else cctx.clearRect(0, 0, cc.width, cc.height);
+  }
+  cancelAnimationFrame(frame);
+  draw();
+}
+
+// ════════════════════════════════════════════════════════════
+//  INITIAL BOARD DRAW
+// ════════════════════════════════════════════════════════════
+renderBoard(null, null, null);
+</script>
+</body>
+</html>
