@@ -14,8 +14,6 @@ public class GameController {
     @Autowired
     private JdbcTemplate jdbc;
 
-    // ── セッションからゲームを取得 ───────────────────────────────────────────────
-
     private GomokuGame getGame(HttpSession session) {
         GomokuGame game = (GomokuGame) session.getAttribute("game");
         if (game == null) {
@@ -26,35 +24,36 @@ public class GameController {
         return game;
     }
 
-    // ── GET /api/state ─────────────────────────────────────────────────────────
-
     @GetMapping("/state")
     public Map<String, Object> getState(HttpSession session) {
         return buildState(getGame(session));
     }
 
-    // ── POST /api/new ──────────────────────────────────────────────────────────
-
     @PostMapping("/new")
     public Map<String, Object> newGame(@RequestBody Map<String, String> body, HttpSession session) {
-        String diff   = body.getOrDefault("difficulty", "NORMAL").toUpperCase();
-        String color  = body.getOrDefault("color", "black").toLowerCase();
-        String modeS  = body.getOrDefault("mode", "VS_AI").toUpperCase();
+        String diff  = body.getOrDefault("difficulty", "NORMAL").toUpperCase();
+        String color = body.getOrDefault("color", "black").toLowerCase();
+        String modeS = body.getOrDefault("mode", "VS_AI").toUpperCase();
+        boolean playerWhite = "white".equals(color);
 
         GomokuGame game = new GomokuGame();
         game.newGame(
             GomokuGame.Difficulty.valueOf(diff),
-            "white".equals(color),
+            playerWhite,
             GomokuGame.Mode.valueOf(modeS)
         );
         session.setAttribute("game", game);
+
+        // 後攻（白）選択時はAIが先に黒を打つ
+        if (playerWhite && game.getMode() == GomokuGame.Mode.VS_AI) {
+            game.aiMove();
+        }
+
         return buildState(game);
     }
 
-    // ── POST /api/move ─────────────────────────────────────────────────────────
-
     @PostMapping("/move")
-    public Map<String, Object> move(@RequestBody Map<String, Integer> body, HttpSession session) throws InterruptedException {
+    public Map<String, Object> move(@RequestBody Map<String, Integer> body, HttpSession session) {
         GomokuGame game = getGame(session);
         int row = body.get("row");
         int col = body.get("col");
@@ -64,14 +63,6 @@ public class GameController {
         res.put("moved", moved);
 
         if (moved && !game.isGameOver() && game.getMode() == GomokuGame.Mode.VS_AI) {
-            // 難易度別の演出待機
-            long delay = switch (game.getDifficulty()) {
-                case EASY   -> 700;
-                case NORMAL -> 1200;
-                case HARD   -> 1800;
-                case EXPERT -> 0; // 実計算なので待機なし
-            };
-            if (delay > 0) Thread.sleep(delay);
             int[] aiPos = game.aiMove();
             res = buildState(game);
             res.put("moved", true);
@@ -83,15 +74,11 @@ public class GameController {
         return res;
     }
 
-    // ── POST /api/name ─────────────────────────────────────────────────────────
-
     @PostMapping("/name")
     public Map<String, Object> setName(@RequestBody Map<String, String> body, HttpSession session) {
         session.setAttribute("playerName", body.getOrDefault("name", "Player"));
         return Map.of("ok", true);
     }
-
-    // ── POST /api/ranking/submit ───────────────────────────────────────────────
 
     @PostMapping("/ranking/submit")
     public Map<String, Object> submitRanking(@RequestBody Map<String, Object> body, HttpSession session) {
@@ -107,8 +94,6 @@ public class GameController {
             return Map.of("ok", false, "error", e.getMessage());
         }
     }
-
-    // ── GET /api/ranking ──────────────────────────────────────────────────────
 
     @GetMapping("/ranking")
     public Map<String, Object> getRanking() {
@@ -126,8 +111,6 @@ public class GameController {
         }
     }
 
-    // ── DELETE /api/ranking ───────────────────────────────────────────────────
-
     @DeleteMapping("/ranking")
     public Map<String, Object> clearRanking() {
         try {
@@ -138,8 +121,6 @@ public class GameController {
         }
     }
 
-    // ── GET /api/debug ────────────────────────────────────────────────────────
-
     @GetMapping("/debug")
     public Map<String, Object> debug() {
         try {
@@ -149,8 +130,6 @@ public class GameController {
             return Map.of("error", e.getMessage());
         }
     }
-
-    // ── ユーティリティ ─────────────────────────────────────────────────────────
 
     private Map<String, Object> buildState(GomokuGame game) {
         Map<String, Object> m = new LinkedHashMap<>();
