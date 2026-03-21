@@ -259,9 +259,16 @@ async function startGame() {
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ difficulty: S.diff, color: S.color, mode: 'VS_AI' })
   });
-  const state = await res.json();
-  applyState(state);
+  let state = await res.json();
+
+  // 後攻（白）選択時はAIに先に打たせる
+  if (S.color === 'white') {
+    const aiRes = await fetch('/api/ai-first', { method: 'POST' });
+    state = await aiRes.json();
+  }
+
   showView('view-play');
+  applyState(state);
 }
 
 // ════════════════════════════════════════════════════════════
