@@ -50,6 +50,15 @@ public class GomokuGame {
         return true;
     }
 
+    // 手番チェックなしでAIに強制的に打たせる（後攻開始用）
+    public void forceAiMove() {
+        int[] pos = calcAiMove();
+        place(pos[0], pos[1], aiColor);
+        if (checkWin(pos[0], pos[1], aiColor)) { endGame(aiColor); }
+        else if (isDraw()) { endGame(0); }
+        else { currentPlayer = playerColor; }
+    }
+
     public int[] aiMove() {
         if (gameOver || currentPlayer != aiColor) return null;
         int[] pos = calcAiMove();
