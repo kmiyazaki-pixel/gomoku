@@ -43,12 +43,15 @@ public class GameController {
             GomokuGame.Mode.valueOf(modeS)
         );
         session.setAttribute("game", game);
+        return buildState(game);
+    }
 
-        // 後攻（白）選択時はAIが先に黒を打つ
-        if (playerWhite && game.getMode() == GomokuGame.Mode.VS_AI) {
-            game.aiMove();
-        }
-
+    // 後攻選択時にフロントから呼ぶ専用エンドポイント
+    @PostMapping("/ai-first")
+    public Map<String, Object> aiFirst(HttpSession session) {
+        GomokuGame game = getGame(session);
+        // currentPlayerをaiColorに強制セットしてから打つ
+        game.forceAiMove();
         return buildState(game);
     }
 
