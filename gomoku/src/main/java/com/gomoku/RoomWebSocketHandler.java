@@ -37,7 +37,8 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
 
     private void handleJoin(WebSocketSession session, Map<?, ?> msg) throws Exception {
         String roomId = (String) msg.get("roomId");
-        String name   = (String) msg.getOrDefault("name", "Player");
+        Object nameRaw = msg.get("name");
+        String name = (nameRaw instanceof String s) ? s : "Player";
         names.put(session.getId(), name);
 
         rooms.computeIfAbsent(roomId, k -> Collections.synchronizedList(new ArrayList<>()));
