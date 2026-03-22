@@ -278,7 +278,7 @@ public class GomokuGame {
                 }
             }
         }
-        if (!hasStone) return List.of(new int[]{7, 7});
+        if (!hasStone) { List<int[]> center = new ArrayList<>(); center.add(new int[]{7, 7}); return center; }
         List<int[]> list = new ArrayList<>();
         for (int r = 0; r < BOARD_SIZE; r++)
             for (int c = 0; c < BOARD_SIZE; c++)
