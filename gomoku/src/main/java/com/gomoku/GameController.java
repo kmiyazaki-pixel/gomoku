@@ -42,16 +42,14 @@ public class GameController {
             playerWhite,
             GomokuGame.Mode.valueOf(modeS)
         );
-        session.setAttribute("game", game);
-        return buildState(game);
-    }
 
-    // 後攻選択時にフロントから呼ぶ専用エンドポイント
-    @PostMapping("/ai-first")
-    public Map<String, Object> aiFirst(HttpSession session) {
-        GomokuGame game = getGame(session);
-        // currentPlayerをaiColorに強制セットしてから打つ
-        game.forceAiMove();
+        // 後攻（白）ならここでAIが即座に黒を打つ
+        if (playerWhite && GomokuGame.Mode.valueOf(modeS) == GomokuGame.Mode.VS_AI) {
+            int[] pos = game.calcAiMovePublic();
+            game.forcePlace(pos[0], pos[1], game.getAiColor());
+        }
+
+        session.setAttribute("game", game);
         return buildState(game);
     }
 
