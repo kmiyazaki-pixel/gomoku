@@ -138,6 +138,15 @@ public class GomokuGame {
 
     // ── AI ────────────────────────────────────────────────────────────────────
 
+    public int[] calcAiMovePublic() { return calcAiMove(); }
+
+    public void forcePlace(int row, int col, int color) {
+        board[row][col] = color;
+        lastRow = row;
+        lastCol = col;
+        currentPlayer = playerColor;
+    }
+
     private int[] calcAiMove() {
         int[][] b = copyBoard();
         return switch (difficulty) {
