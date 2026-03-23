@@ -43,7 +43,7 @@ public class GameController {
             GomokuGame.Mode.valueOf(modeS)
         );
 
-        // 後攻（白）ならここでAIが即座に黒を打つ
+        // 後攻（白）ならAIが即座に黒を打つ
         if (playerWhite && GomokuGame.Mode.valueOf(modeS) == GomokuGame.Mode.VS_AI) {
             int[] pos = game.calcAiMovePublic();
             game.forcePlace(pos[0], pos[1], game.getAiColor());
@@ -56,18 +56,8 @@ public class GameController {
     @PostMapping("/undo")
     public Map<String, Object> undo(HttpSession session) {
         GomokuGame game = getGame(session);
-        if (!game.canUndo()) return buildState(game);
-        // AI対戦は2手分（AIの手 + プレイヤーの手）戻す
-        game.undo();
-        if (game.getMode() == GomokuGame.Mode.VS_AI && game.canUndo()) game.undo();
-        return buildState(game);
-    }
-
-    @PostMapping("/undo")
-    public Map<String, Object> undo(HttpSession session) {
-        GomokuGame game = getGame(session);
         if (game.getMode() == GomokuGame.Mode.VS_AI) {
-            // AI対戦: プレイヤーの手 + AIの手 の2手戻し
+            // AI対戦: プレイヤーの手＋AIの手を2手セットで戻す
             game.undo();
             if (game.canUndo()) game.undo();
         } else {
