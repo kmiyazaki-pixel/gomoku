@@ -36,6 +36,12 @@
   .score-item { background: #16213e; border-radius: 8px; padding: 6px 14px; }
   .btn-back { background: none; border: 2px solid #555; border-radius: 8px; color: #aaa; padding: 6px 14px; cursor: pointer; font-size: .85rem; }
   .btn-back:hover { border-color: #fff; color: #fff; }
+  .btn-undo { background: none; border: 2px solid #555; border-radius: 8px; color: #aaa; padding: 6px 14px; cursor: pointer; font-size: .85rem; }
+  .btn-undo:hover { border-color: #f0c060; color: #f0c060; }
+  .btn-undo:disabled { opacity: .3; cursor: default; border-color: #333; color: #333; }
+  .btn-undo { background: none; border: 2px solid #f0c060; border-radius: 8px; color: #f0c060; padding: 6px 14px; cursor: pointer; font-size: .85rem; }
+  .btn-undo:hover { background: #f0c06022; }
+  .btn-undo:disabled { border-color: #444; color: #444; cursor: default; }
 
   /* ── Board ── */
   .board-outer { background: #dcb06a; border-radius: 4px; padding: 20px; box-shadow: 0 8px 32px #0006; }
@@ -117,7 +123,9 @@
   <div class="game-wrap">
     <div class="game-header">
       <button class="btn-back" onclick="showView('view-start')">← もどる</button>
+      <button class="btn-undo" id="btn-undo" onclick="undoMove()">↩ 1手戻す</button>
       <div class="turn-banner" id="turn-banner">黒の番</div>
+      <button class="btn-undo" id="btn-undo" onclick="undoMove()">↩ 1手戻す</button>
       <div class="score-wrap">
         <div class="score-item">⚫ <span id="black-score">0</span></div>
         <div class="score-item">⚪ <span id="white-score">0</span></div>
@@ -275,6 +283,13 @@ function leaveRoom() {
   showView('view-start');
 }
 
+// ════════════ UNDO ════════════
+async function undoMove() {
+  if (gameOver) return;
+  const res = await fetch('/api/undo', { method: 'POST' });
+  applyState(await res.json());
+}
+
 // ════════════ BOARD CLICK ════════════
 async function onBoardClick(e) {
   if (gameOver) return;
@@ -313,7 +328,14 @@ function applyState(state) {
   updateTurnBanner();
   renderBoard(state.board, lastMove, winLine);
 
+  document.getElementById('btn-undo').disabled = state.gameOver;
   if (state.gameOver) setTimeout(() => showResult(state), 600);
+}
+
+async function undoMove() {
+  if (gameOver) return;
+  const res = await fetch('/api/undo', { method: 'POST' });
+  applyState(await res.json());
 }
 
 function updateTurnBanner() {
