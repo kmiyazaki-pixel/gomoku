@@ -23,6 +23,11 @@ public class GomokuGame {
     private boolean gameOver = false;
     private String winner = null;
 
+    // 履歴（undo用）: 各要素 = {board snapshot, lastRow, lastCol, currentPlayer, gameOver, winner}
+    private final Deque<int[][]> historyBoard = new ArrayDeque<>();
+    private final Deque<int[]>   historyMeta  = new ArrayDeque<>(); // [lastRow, lastCol, currentPlayer, gameOver(0/1)]
+    private final Deque<String>  historyWinner = new ArrayDeque<>();
+
     // ── 初期化 ────────────────────────────────────────────────────────────────
 
     public void newGame(Difficulty diff, boolean playerWhite, Mode m) {
@@ -37,12 +42,16 @@ public class GomokuGame {
         winLine = null;
         gameOver = false;
         winner = null;
+        historyBoard.clear();
+        historyMeta.clear();
+        historyWinner.clear();
     }
 
     // ── 手を置く（AI対戦用） ───────────────────────────────────────────────────
 
     public boolean playerMove(int row, int col) {
         if (gameOver || board[row][col] != 0 || currentPlayer != playerColor) return false;
+        saveHistory();
         place(row, col, playerColor);
         if (checkWin(row, col, playerColor)) { endGame(playerColor); return true; }
         if (isDraw()) { endGame(0); return true; }
@@ -52,6 +61,7 @@ public class GomokuGame {
 
     // 手番チェックなしでAIに強制的に打たせる（後攻開始用）
     public void forceAiMove() {
+        saveHistory();
         int[] pos = calcAiMove();
         place(pos[0], pos[1], aiColor);
         if (checkWin(pos[0], pos[1], aiColor)) { endGame(aiColor); }
@@ -61,6 +71,7 @@ public class GomokuGame {
 
     public int[] aiMove() {
         if (gameOver || currentPlayer != aiColor) return null;
+        saveHistory();
         int[] pos = calcAiMove();
         place(pos[0], pos[1], aiColor);
         if (checkWin(pos[0], pos[1], aiColor)) { endGame(aiColor); }
@@ -81,6 +92,29 @@ public class GomokuGame {
     }
 
     // ── 内部処理 ───────────────────────────────────────────────────────────────
+
+    private void saveHistory() {
+        int[][] snap = new int[BOARD_SIZE][BOARD_SIZE];
+        for (int i = 0; i < BOARD_SIZE; i++) snap[i] = board[i].clone();
+        historyBoard.push(snap);
+        historyMeta.push(new int[]{lastRow, lastCol, currentPlayer, gameOver ? 1 : 0});
+        historyWinner.push(winner == null ? "" : winner);
+    }
+
+    public boolean canUndo() { return !historyBoard.isEmpty(); }
+
+    public void undo() {
+        if (historyBoard.isEmpty()) return;
+        board = historyBoard.pop();
+        int[] meta = historyMeta.pop();
+        lastRow       = meta[0];
+        lastCol       = meta[1];
+        currentPlayer = meta[2];
+        gameOver      = meta[3] == 1;
+        String w = historyWinner.pop();
+        winner  = w.isEmpty() ? null : w;
+        winLine = null;
+    }
 
     private void place(int row, int col, int color) {
         board[row][col] = color;
