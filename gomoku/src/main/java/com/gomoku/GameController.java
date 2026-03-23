@@ -53,6 +53,29 @@ public class GameController {
         return buildState(game);
     }
 
+    @PostMapping("/undo")
+    public Map<String, Object> undo(HttpSession session) {
+        GomokuGame game = getGame(session);
+        if (!game.canUndo()) return buildState(game);
+        // AI対戦は2手分（AIの手 + プレイヤーの手）戻す
+        game.undo();
+        if (game.getMode() == GomokuGame.Mode.VS_AI && game.canUndo()) game.undo();
+        return buildState(game);
+    }
+
+    @PostMapping("/undo")
+    public Map<String, Object> undo(HttpSession session) {
+        GomokuGame game = getGame(session);
+        if (game.getMode() == GomokuGame.Mode.VS_AI) {
+            // AI対戦: プレイヤーの手 + AIの手 の2手戻し
+            game.undo();
+            if (game.canUndo()) game.undo();
+        } else {
+            game.undo();
+        }
+        return buildState(game);
+    }
+
     @PostMapping("/move")
     public Map<String, Object> move(@RequestBody Map<String, Integer> body, HttpSession session) {
         GomokuGame game = getGame(session);
