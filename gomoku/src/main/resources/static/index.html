@@ -410,7 +410,7 @@ function closeOverlay() { document.getElementById('overlay').classList.remove('a
 // ════════════ RANKING ════════════
 async function submitRanking() {
   const name  = document.getElementById('overlay-name').value.trim() || playerName;
-  const score = (boardState?.blackScore??0) + (boardState?.whiteScore??0);
+  const score = playerColor === 1 ? (boardState?.blackScore??0) : (boardState?.whiteScore??0);
   const diff  = document.getElementById('sel-diff').value;
   await fetch('/api/ranking/submit', {
     method: 'POST', headers: {'Content-Type':'application/json'},
@@ -420,7 +420,7 @@ async function submitRanking() {
 }
 
 async function showRanking() {
-  rankData = await fetch('/api/ranking').then(r => r.json());
+  rankData = await fetch('/api/ranking?name=' + encodeURIComponent(playerName)).then(r => r.json());
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById('screen-ranking').classList.add('active');
   renderRankTable(currentRankDiff);
